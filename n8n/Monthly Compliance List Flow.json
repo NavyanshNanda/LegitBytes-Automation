@@ -1,0 +1,673 @@
+{
+  "name": "Monthly Compliance List Flow",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 18 1-7 * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        16,
+        304
+      ],
+      "id": "f23e0545-d1c3-4420-8c10-166e425e96c2",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://graph.microsoft.com/v1.0/sites/legitbytes.sharepoint.com,cd5a7e65-ab79-4753-9494-b410a9d23bc4,f17fe0af-588b-4726-a56e-ac344a8fd4c0/drive/root:/HR/Attendance Reports Monthly:/children",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOAuth2Api",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        208,
+        304
+      ],
+      "id": "92f463cf-4410-4e8d-a366-3f8915a5d358",
+      "name": "HTTP Request",
+      "credentials": {
+        "microsoftOAuth2Api": {
+          "id": "E6qchQtiJ3LxWCcp",
+          "name": "Microsoft account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "site": {
+          "__rl": true,
+          "value": "legitbytes.sharepoint.com,cd5a7e65-ab79-4753-9494-b410a9d23bc4,f17fe0af-588b-4726-a56e-ac344a8fd4c0",
+          "mode": "list",
+          "cachedResultName": "LegitBytes"
+        },
+        "folder": {
+          "__rl": true,
+          "value": "01OHR7NMG7XZ52GOFMAFF3ASK643EZIEGB",
+          "mode": "list",
+          "cachedResultName": "Attendance Reports"
+        },
+        "file": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-base.microsoftSharePoint",
+      "typeVersion": 1,
+      "position": [
+        624,
+        304
+      ],
+      "id": "2de078f8-ffae-47b1-b099-9c11e9a1a774",
+      "name": "Download file",
+      "credentials": {
+        "microsoftSharePointOAuth2Api": {
+          "id": "FLcQRwOt03NtBeFh",
+          "name": "Microsoft SharePoint account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get all items from the previous node\nconst items = $input.all();\n\n// Assuming your HTTP Request node structure, reach into the 'value' array\nconst files = items[0].json.value;\n\n// Sort by date to find the most recent\nfiles.sort((a, b) => new Date(b.lastModifiedDateTime) - new Date(a.lastModifiedDateTime));\n\n// Return ONLY the newest file as the root object\nreturn [{\n  json: files[0]\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        304
+      ],
+      "id": "e42fb390-9607-4516-8c09-d0392b1bc309",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        832,
+        304
+      ],
+      "id": "2e123908-d089-4bda-82e0-099c38153e4c",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "jsCode": "function excelDateToJSDate(serial) {\n  const utcDays = Math.floor(serial - 25569);\n  const utcValue = utcDays * 86400;\n  const dateInfo = new Date(utcValue * 1000);\n\n  return dateInfo.toISOString().split('T')[0];\n}\n// Get all raw rows from the Spreadsheet node\nconst rows = $input.all();\n\n// 1. Skip the first 2 rows (index 0 and 1)\nconst dataRows = rows.slice(3);\n\n// 2. Map the data to your specific schema\nreturn dataRows.map(row => {\n  const json = row.json;\n  return {\n    json: {\n      \"SNO\": json[\"LegitBytes Information Technology Services LLP\"],\n      \"Name\": json[\"__EMPTY\"],\n      \"Employee No\": json[\"__EMPTY_1\"],\n      \"Date of Joining\": json[\"__EMPTY_2\"],\n      \"Manager No\": json[\"__EMPTY_3\"],\n      \"Manager Name\": json[\"__EMPTY_4\"],\n      \"Attendance Date\": excelDateToJSDate(json[\"__EMPTY_5\"]),\n      \"Day\": json[\"__EMPTY_6\"],\n      \"Session1 Status\": json[\"__EMPTY_7\"],\n      \"Session2 Status\": json[\"__EMPTY_8\"],\n      \"In Time\": json[\"__EMPTY_9\"],\n      \"Out Time\": json[\"__EMPTY_10\"],\n      \"Shift Name\": json[\"__EMPTY_11\"],\n      \"Shift In Time\": json[\"__EMPTY_12\"],\n      \"Shift Out Time\": json[\"__EMPTY_13\"],\n      \"Late In Hrs\": json[\"__EMPTY_14\"],\n      \"Early Out Hrs\": json[\"__EMPTY_15\"],\n      \"Work Hours\": json[\"__EMPTY_16\"],\n      \"Excess Hours\": json[\"__EMPTY_17\"],\n      \"Total Work Hours\": json[\"__EMPTY_18\"]\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1024,
+        304
+      ],
+      "id": "baea9c0d-069c-4ccd-b46f-dfbb5f633d65",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => {\n\n    const s1 = (item.json[\"Session1 Status\"] || \"\").toUpperCase();\n    const s2 = (item.json[\"Session2 Status\"] || \"\").toUpperCase();\n\n    const isWorkingDay =\n        s1 === \"P\" ||\n        s1 === \"WFH\" ||\n        s2 === \"P\" ||\n        s2 === \"WFH\";\n\n    return {\n        json: {\n            ...item.json,\n            IsWorkingDay: isWorkingDay\n        }\n    };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1232,
+        304
+      ],
+      "id": "f5f519fa-ad0f-457a-bd60-f0ad4d058a1e",
+      "name": "Code in JavaScript2"
+    },
+    {
+      "parameters": {
+        "resource": "item",
+        "site": {
+          "__rl": true,
+          "value": "legitbytes.sharepoint.com,1f32110b-3573-4e2d-a002-166c01c71e43,e0b42379-faf7-40b7-93a9-55ab09390e14",
+          "mode": "list",
+          "cachedResultName": "Team Daily Tracker"
+        },
+        "list": {
+          "__rl": true,
+          "value": "8c28bdc9-c508-4025-a6b9-14e48f4e77f2",
+          "mode": "list",
+          "cachedResultName": "Employee Compliance"
+        },
+        "limit": 5000,
+        "options": {
+          "fields": [
+            "fields"
+          ]
+        },
+        "simplify": false,
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-base.microsoftSharePoint",
+      "typeVersion": 1,
+      "position": [
+        1232,
+        160
+      ],
+      "id": "6f006135-8b88-4e7f-a97c-ee214466a217",
+      "name": "Get many items",
+      "executeOnce": true,
+      "credentials": {
+        "microsoftSharePointOAuth2Api": {
+          "id": "FLcQRwOt03NtBeFh",
+          "name": "Microsoft SharePoint account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2528,
+        240
+      ],
+      "id": "f4f38d24-48a7-49db-aea0-ca92d0220e58",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => {\n\n    const date = item.json.WorkDate\n        ? item.json.WorkDate.split('T')[0]\n        : null;\n\n    return {\n        json: {\n            ...item.json,\n            WorkDateOnly: date\n        }\n    };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        160
+      ],
+      "id": "263e5d7d-1ecc-49ff-b6aa-a8175839cfe9",
+      "name": "Normalize Compliance Dates"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => {\n  return {\n    json: {\n      ...item.json.fields,\n      WorkDateOnly: item.json.fields.WorkDate\n        ? item.json.fields.WorkDate.split('T')[0]\n        : null\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1648,
+        160
+      ],
+      "id": "75b738c7-7a42-47e5-a325-268c5b1fd7cd",
+      "name": "Flatten Compliance"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\n// ================================\n// SEPARATE DATASETS\n// ================================\n\nconst muster = items.filter(\n    i => i.json.Name !== undefined &&\n         i.json[\"Employee No\"] !== undefined\n);\n\nconst compliance = items.filter(\n    i => i.json.EmployeeID !== undefined &&\n         i.json.WorkDateOnly !== undefined\n);\n\nconst employeeList = items.filter(\n    i => i.json.fields?.EmployeeID !== undefined\n);\n\n// ================================\n// CREATE EMPLOYEE MASTER RECORDS\n// (Source of Truth = Employee List)\n// ================================\n\nconst employees = {};\n\nfor (const item of employeeList) {\n\n    const employee = item.json.fields;\n\n    const employeeId = employee.EmployeeID;\n\n    employees[employeeId] = {\n        EmployeeID: employeeId,\n        EmployeeName: employee.Title || \"\",\n        EmployeeEmail: employee.EmployeeEmail || \"\",\n        Shift: employee.Shift || \"\",\n        Month: \"\",\n\n        ExpectedWorkingDays: 0,\n        MissedSODDays: 0,\n        MissedEODDays: 0,\n\n        TotalSODTasks: 0,\n        TotalEODTasks: 0,\n        TotalDelayedTasks: 0,\n\n        WorkingDates: new Set(),\n        ComplianceDates: {}\n    };\n}\n\n// ================================\n// PROCESS ATTENDANCE MUSTER\n// ================================\n\nfor (const item of muster) {\n\n    const employeeId = item.json[\"Employee No\"];\n    const attendanceDate = item.json[\"Attendance Date\"];\n\n    if (!employees[employeeId]) {\n        continue;\n    }\n\n    if (item.json.IsWorkingDay === true) {\n\n        employees[employeeId].ExpectedWorkingDays++;\n\n        employees[employeeId].WorkingDates.add(attendanceDate);\n    }\n}\n\n// ================================\n// PROCESS COMPLIANCE\n// ================================\n\nfor (const item of compliance) {\n\n    const employeeId = item.json.EmployeeID;\n    const date = item.json.WorkDateOnly;\n\n    if (!employees[employeeId]) {\n        continue;\n    }\n\n    // Month for report\n    if (!employees[employeeId].Month && date) {\n        employees[employeeId].Month = date.substring(0, 7);\n    }\n\n    employees[employeeId].TotalSODTasks += Number(item.json.SODTaskCount || 0);\n\n    employees[employeeId].TotalEODTasks += Number(item.json.EODTaskCount || 0);\n\n    employees[employeeId].TotalDelayedTasks += Number(item.json.DelayedTaskCount || 0);\n\n    employees[employeeId].ComplianceDates[date] = {\n        SOD: item.json.SODSubmitted === true,\n        EOD: item.json.EODSubmitted === true\n    };\n}\n\n// ================================\n// CALCULATE MISSED DAYS\n// ================================\n\nfor (const employee of Object.values(employees)) {\n\n    for (const workDate of employee.WorkingDates) {\n\n        const complianceRecord =\n            employee.ComplianceDates[workDate];\n\n        if (!complianceRecord || complianceRecord.SOD !== true) {\n            employee.MissedSODDays++;\n        }\n\n        if (!complianceRecord || complianceRecord.EOD !== true) {\n            employee.MissedEODDays++;\n        }\n    }\n\n    delete employee.WorkingDates;\n    delete employee.ComplianceDates;\n}\n\n// ================================\n// OUTPUT\n// ================================\n\nreturn Object.values(employees).map(emp => ({\n    json: {\n        EmployeeName: emp.EmployeeName,\n        EmployeeEmail: emp.EmployeeEmail,\n        EmployeeID: emp.EmployeeID,\n        Month: emp.Month,\n        Shift: emp.Shift,\n\n        ExpectedWorkingDays: emp.ExpectedWorkingDays,\n        MissedSODDays: emp.MissedSODDays,\n        MissedEODDays: emp.MissedEODDays,\n\n        TotalSODTasks: emp.TotalSODTasks,\n        TotalEODTasks: emp.TotalEODTasks,\n        TotalDelayedTasks: emp.TotalDelayedTasks\n    }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2736,
+        240
+      ],
+      "id": "4b149d4f-8e7d-4eb1-8a91-bf7e4d54b973",
+      "name": "Code in JavaScript3",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "resource": "item",
+        "site": {
+          "__rl": true,
+          "value": "legitbytes.sharepoint.com,cd5a7e65-ab79-4753-9494-b410a9d23bc4,f17fe0af-588b-4726-a56e-ac344a8fd4c0",
+          "mode": "list",
+          "cachedResultName": "LegitBytes"
+        },
+        "list": {
+          "__rl": true,
+          "value": "2cf210a4-7b51-4849-9cb2-c34ca0b4b7ae",
+          "mode": "list",
+          "cachedResultName": "All Employees List"
+        },
+        "options": {
+          "fields": [
+            "fields"
+          ]
+        },
+        "simplify": false,
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-base.microsoftSharePoint",
+      "typeVersion": 1,
+      "position": [
+        1232,
+        464
+      ],
+      "id": "5d3cc4d2-7d27-4023-a2d9-6b9046b63f4f",
+      "name": "Get many items1",
+      "credentials": {
+        "microsoftSharePointOAuth2Api": {
+          "id": "FLcQRwOt03NtBeFh",
+          "name": "Microsoft SharePoint account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7620a8b3-ccb9-4b8c-a2d3-5e9f503f96ca",
+              "leftValue": "={{ $json.fields.isActive }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1440,
+        464
+      ],
+      "id": "fbfa62ba-fe72-420f-bdeb-80a3d43c6a99",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "resource": "item",
+        "operation": "create",
+        "site": {
+          "__rl": true,
+          "value": "legitbytes.sharepoint.com,1f32110b-3573-4e2d-a002-166c01c71e43,e0b42379-faf7-40b7-93a9-55ab09390e14",
+          "mode": "list",
+          "cachedResultName": "Team Daily Tracker"
+        },
+        "list": {
+          "__rl": true,
+          "value": "10ef2367-ee4d-4a79-a485-d3e5d1eecf09",
+          "mode": "list",
+          "cachedResultName": "Monthly Compliance List"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Title": "={{ $json.EmployeeName }}",
+            "EmployeeEmail": "={{ $json.EmployeeEmail }}",
+            "Month": "={{ $json.Month }}",
+            "Shift": "={{ $json.Shift }}",
+            "ExpectedWorkingDays": "={{ $json.ExpectedWorkingDays }}",
+            "MissedSODDays": "={{ $json.MissedSODDays }}",
+            "MissedEODDays": "={{ $json.MissedEODDays }}",
+            "TotalSODTasks": "={{ $json.TotalSODTasks }}",
+            "TotalEODTasks": "={{ $json.TotalEODTasks }}",
+            "TotalDelayedTasks": "={{ $json.TotalDelayedTasks }}",
+            "EmployeeID": "={{ $json.EmployeeID }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Title",
+              "canBeUsedToMatch": false,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Title",
+              "readOnly": false,
+              "required": false,
+              "type": "string"
+            },
+            {
+              "id": "EmployeeEmail",
+              "canBeUsedToMatch": false,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Employee Email",
+              "readOnly": false,
+              "required": false,
+              "type": "string"
+            },
+            {
+              "id": "Month",
+              "canBeUsedToMatch": false,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Month",
+              "readOnly": false,
+              "required": false,
+              "type": "string"
+            },
+            {
+              "id": "Shift",
+              "canBeUsedToMatch": false,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Shift",
+              "readOnly": false,
+              "required": false,
+              "type": "string"
+            },
+            {
+              "id": "ExpectedWorkingDays",
+              "canBeUsedToMatch": false,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Expected Working Days",
+              "readOnly": false,
+              "required": false,
+              "type": "number"
+            },
+            {
+              "id": "MissedSODDays",
+              "canBeUsedToMatch": false,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Missed SOD Days",
+              "readOnly": false,
+              "required": false,
+              "type": "number"
+            },
+            {
+              "id": "MissedEODDays",
+              "canBeUsedToMatch": false,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Missed EOD Days",
+              "readOnly": false,
+              "required": false,
+              "type": "number"
+            },
+            {
+              "id": "TotalSODTasks",
+              "canBeUsedToMatch": false,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Total SOD Tasks",
+              "readOnly": false,
+              "required": false,
+              "type": "number"
+            },
+            {
+              "id": "TotalEODTasks",
+              "canBeUsedToMatch": false,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Total EOD Tasks",
+              "readOnly": false,
+              "required": false,
+              "type": "number"
+            },
+            {
+              "id": "TotalDelayedTasks",
+              "canBeUsedToMatch": false,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Total Delayed Tasks",
+              "readOnly": false,
+              "required": false,
+              "type": "number"
+            },
+            {
+              "id": "SODCompliance_x0025_",
+              "canBeUsedToMatch": false,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "SOD Compliance %",
+              "readOnly": false,
+              "required": false,
+              "type": "number"
+            },
+            {
+              "id": "EODCompliance_x0025_",
+              "canBeUsedToMatch": false,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "EOD Compliance %",
+              "readOnly": false,
+              "required": false,
+              "type": "number"
+            },
+            {
+              "id": "Delay_x0025_",
+              "canBeUsedToMatch": false,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Delay %",
+              "readOnly": false,
+              "required": false,
+              "type": "number"
+            },
+            {
+              "id": "EmployeeID",
+              "canBeUsedToMatch": false,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Employee ID",
+              "readOnly": false,
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-base.microsoftSharePoint",
+      "typeVersion": 1,
+      "position": [
+        2944,
+        240
+      ],
+      "id": "e0ce9c3b-5367-4729-9bca-b8e00ff46b9c",
+      "name": "Create item in a list",
+      "credentials": {
+        "microsoftSharePointOAuth2Api": {
+          "id": "FLcQRwOt03NtBeFh",
+          "name": "Microsoft SharePoint account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get many items",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get many items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download file": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Download file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript2": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Get many items": {
+      "main": [
+        [
+          {
+            "node": "Normalize Compliance Dates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Compliance Dates": {
+      "main": [
+        [
+          {
+            "node": "Flatten Compliance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Flatten Compliance": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many items1": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript3": {
+      "main": [
+        [
+          {
+            "node": "Create item in a list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "d1b24dff-7f5a-4a00-826a-8f86a6aaf968",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c0b147709765b44b115fa318596c5482d80b4a57cf23a3b8f73c702d6f76a23d"
+  },
+  "id": "D1MSRRtEctoKxwel",
+  "tags": []
+}

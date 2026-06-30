@@ -1,0 +1,151 @@
+{
+  "name": "SOD-Summary-Flow-HR",
+  "nodes": [
+    {
+      "parameters": {
+        "url": "https://graph.microsoft.com/v1.0/sites/legitbytes.sharepoint.com,cd5a7e65-ab79-4753-9494-b410a9d23bc4,f17fe0af-588b-4726-a56e-ac344a8fd4c0/lists/61dbc581-97b3-4e2f-8767-3c8d23de2c49/items?expand=fields",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "$top",
+              "value": "5000"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -368,
+        -304
+      ],
+      "id": "e476f4ef-953c-4596-986f-c459a6a17c2f",
+      "name": "HTTP Request",
+      "credentials": {
+        "microsoftOAuth2Api": {
+          "id": "E6qchQtiJ3LxWCcp",
+          "name": "Microsoft account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = items[0].json.value;\n\n/* =========================================================\n   CONFIG\n========================================================= */\nconst SUMMARY_TITLE = \"Daily SOD Summary\";\n\n/* =========================================================\n   HELPERS\n========================================================= */\nfunction clean(value) {\n  return (value || \"\").toString().trim();\n}\n\nfunction getDateKey(date) {\n  return date.toISOString().split('T')[0];\n}\n\nfunction formatDisplayDate(dateString) {\n  if (!dateString) return \"\";\n  const d = new Date(dateString);\n  if (isNaN(d)) return \"\";\n  return d.toLocaleDateString('en-GB', {\n    day: '2-digit',\n    month: 'short',\n    year: 'numeric'\n  });\n}\n\nfunction getTodayDateKey() {\n  return getDateKey(new Date());\n}\n\nfunction getSummaryDisplayDate() {\n  return new Date().toLocaleDateString('en-GB', {\n    day: '2-digit',\n    month: 'long',\n    year: 'numeric'\n  });\n}\n\n/* =========================================================\n   DATE LOGIC\n========================================================= */\nconst TARGET_DATE = getTodayDateKey();\n\n/* =========================================================\n   DATA STRUCTURE (Flat structure by Employee)\n========================================================= */\nconst groupedEmployees = {};\n\n/* =========================================================\n   PROCESS SHAREPOINT DATA\n========================================================= */\nfor (const row of rows) {\n  const item = row.fields;\n  if (!item) continue;\n\n  const snapshotDate = clean(item.SnapshotDate).split('T')[0];\n  if (snapshotDate !== TARGET_DATE) continue;\n\n  // Using the new 'BucketValue' column\n  const bucket = clean(item.BucketValue).toUpperCase();\n  if (bucket !== \"SOD\") continue;\n\n  const employee = clean(item.AssignedTo).replace(/,\\s*$/, '') || \"Unassigned\";\n  const title = clean(item.Title) || \"Untitled Task\";\n  const notes = clean(item.Notes);\n  const dueDate = formatDisplayDate(item.DueDate);\n  const delayed = clean(item.Is_x0020_Delayed).toLowerCase().includes(\"yes\");\n\n  const taskObject = { title, notes, dueDate, delayed };\n\n  if (!groupedEmployees[employee]) {\n    groupedEmployees[employee] = [];\n  }\n\n  groupedEmployees[employee].push(taskObject);\n}\n\n/* =========================================================\n   SORTING EMPLOYEES\n========================================================= */\nconst sortedEmployees = Object.keys(groupedEmployees).sort((a, b) =>\n  a.trim().toLowerCase().localeCompare(b.trim().toLowerCase())\n);\n\n/* =========================================================\n   ADAPTIVE CARD BODY\n========================================================= */\nconst cardBody = [];\n\n// Header Info\ncardBody.push({ type: \"TextBlock\", text: `📋 ${SUMMARY_TITLE}`, weight: \"Bolder\", size: \"Large\", wrap: true });\ncardBody.push({ type: \"TextBlock\", text: `📅 ${getSummaryDisplayDate()}`, spacing: \"Small\", wrap: true });\ncardBody.push({ type: \"TextBlock\", text: \"\", separator: true });\n\nif (sortedEmployees.length === 0) {\n  cardBody.push({ type: \"TextBlock\", text: \"No SOD updates found for today.\", wrap: true });\n}\n\n/* =========================================================\n   EMPLOYEE RENDERING\n========================================================= */\nfor (const employee of sortedEmployees) {\n  const tasks = groupedEmployees[employee];\n\n  cardBody.push({ type: \"TextBlock\", text: `👤 ${employee}`, weight: \"Bolder\", size: \"Medium\", spacing: \"Large\", wrap: true });\n  cardBody.push({ type: \"TextBlock\", text: \"🔄 SOD Updates\", weight: \"Bolder\", color: \"Accent\", spacing: \"Small\", wrap: true });\n\n  let taskLines = [];\n  for (let i = 0; i < tasks.length; i++) {\n    const task = tasks[i];\n    let line = `${i + 1}. ${task.title}`;\n\n    if (task.dueDate) line += ` | Due: ${task.dueDate}`;\n    if (task.delayed) line += ` ⚠️`;\n    if (task.notes) line += `\\n   ↳ *Notes: ${task.notes}*`;\n\n    taskLines.push(line);\n  }\n\n  cardBody.push({ type: \"TextBlock\", text: taskLines.join('\\n\\n'), wrap: true, spacing: \"Small\" });\n}\n\n/* =========================================================\n   FINAL PAYLOAD\n========================================================= */\nconst payload = {\n  subject: SUMMARY_TITLE,\n  body: { contentType: \"html\", content: '<attachment id=\"1\"></attachment>' },\n  attachments: [\n    {\n      id: \"1\",\n      contentType: \"application/vnd.microsoft.card.adaptive\",\n      contentUrl: null,\n      content: JSON.stringify({\n        type: \"AdaptiveCard\",\n        version: \"1.4\",\n        $schema: \"http://adaptivecards.io/schemas/adaptive-card.json\",\n        body: cardBody\n      })\n    }\n  ]\n};\n\nreturn [{ json: { payload: JSON.stringify(payload) } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        -304
+      ],
+      "id": "5d56e141-7aeb-44cd-b558-a0fbd8befd77",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6
+              ],
+              "triggerAtHour": 13
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -576,
+        -304
+      ],
+      "id": "4a63620f-e91a-42a3-9105-dae280861f98",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.microsoft.com/v1.0/teams/3ee6a9eb-52f7-49d6-9534-aca6ee97e229/channels/19:0yauRUJHcYYJBylFE-LkFhiINhwkaUAbd5js9ImhDb41@thread.tacv2/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.parse($json.payload) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        -304
+      ],
+      "id": "02c254df-9e8e-4aba-9ed2-5bcf914ce334",
+      "name": "HTTP Request2",
+      "alwaysOutputData": true,
+      "executeOnce": true,
+      "credentials": {
+        "microsoftOAuth2Api": {
+          "id": "E6qchQtiJ3LxWCcp",
+          "name": "Microsoft account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "5a931692-5cbd-40d5-90ab-dfab9bc29e35",
+  "meta": {
+    "instanceId": "c0b147709765b44b115fa318596c5482d80b4a57cf23a3b8f73c702d6f76a23d"
+  },
+  "id": "guLoIzrwn0HgTEmb",
+  "tags": []
+}

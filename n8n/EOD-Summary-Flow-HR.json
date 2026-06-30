@@ -1,0 +1,152 @@
+{
+  "name": "EOD-Summary-Flow-HR",
+  "nodes": [
+    {
+      "parameters": {
+        "url": "https://graph.microsoft.com/v1.0/sites/legitbytes.sharepoint.com,cd5a7e65-ab79-4753-9494-b410a9d23bc4,f17fe0af-588b-4726-a56e-ac344a8fd4c0/lists/61dbc581-97b3-4e2f-8767-3c8d23de2c49/items?expand=fields",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "$top",
+              "value": "5000"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        128,
+        80
+      ],
+      "id": "c47e13f6-e114-42a3-a699-37a055f05c2d",
+      "name": "HTTP Request",
+      "credentials": {
+        "microsoftOAuth2Api": {
+          "id": "E6qchQtiJ3LxWCcp",
+          "name": "Microsoft account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = items[0].json.value;\n\n/* =========================================================\n   CONFIG\n========================================================= */\nconst SUMMARY_TITLE = \"Daily EOD Summary\";\n\n/* =========================================================\n   HELPERS\n========================================================= */\nfunction clean(value) {\n  return (value || \"\").toString().trim();\n}\n\nfunction getDateKey(date) {\n  return date.toISOString().split('T')[0];\n}\n\nfunction formatDisplayDate(dateString) {\n  if (!dateString) return \"\";\n  const d = new Date(dateString);\n  if (isNaN(d)) return \"\";\n  return d.toLocaleDateString('en-GB', {\n    day: '2-digit',\n    month: 'short',\n    year: 'numeric'\n  });\n}\n\nfunction getTodayDateKey() {\n  return getDateKey(new Date());\n}\n\nfunction getSummaryDisplayDate() {\n  return new Date().toLocaleDateString('en-GB', {\n    day: '2-digit',\n    month: 'long',\n    year: 'numeric'\n  });\n}\n\n/* =========================================================\n   DATE LOGIC (Standard Dayshift Style: All checked today)\n========================================================= */\nconst TARGET_DATE = getTodayDateKey();\n\n/* =========================================================\n   DATA STRUCTURES\n========================================================= */\nconst rawGrouped = {};\n\n/* =========================================================\n   PROCESS SHAREPOINT DATA\n========================================================= */\nfor (const row of rows) {\n  const item = row.fields;\n  if (!item) continue;\n\n  const snapshotDate = clean(item.SnapshotDate).split('T')[0];\n  if (snapshotDate !== TARGET_DATE) continue;\n\n  // Using the new 'BucketValue' column\n  const bucket = clean(item.BucketValue).toUpperCase();\n  if (bucket !== \"SOD\" && bucket !== \"EOD\" && bucket !== \"BLOCKED\") continue;\n\n  const employee = clean(item.AssignedTo).replace(/,\\s*$/, '') || \"Unassigned\";\n  const title = clean(item.Title) || \"Untitled Task\";\n  const notes = clean(item.Notes);\n  const dueDate = formatDisplayDate(item.DueDate);\n  const delayed = clean(item.Is_x0020_Delayed).toLowerCase().includes(\"yes\");\n\n  const taskObject = { title, notes, dueDate, delayed };\n\n  if (!rawGrouped[employee]) {\n    rawGrouped[employee] = { sod: [], eod: [], blocked: [] };\n  }\n\n  if (bucket === \"SOD\") rawGrouped[employee].sod.push(taskObject);\n  if (bucket === \"EOD\") rawGrouped[employee].eod.push(taskObject);\n  if (bucket === \"BLOCKED\") rawGrouped[employee].blocked.push(taskObject);\n}\n\n/* =========================================================\n   COMPUTE COMPLETED VS IN-PROGRESS (EOD UPDATES)\n========================================================= */\nconst finalEmployees = {};\n\nfor (const employee in rawGrouped) {\n  const { sod, eod, blocked } = rawGrouped[employee];\n\n  const completed = [];\n  const inProgress = [];\n\n  // 1. All EOD tasks are Completed\n  for (const eodTask of eod) {\n    completed.push(eodTask);\n  }\n\n  // 2. Look for items left in progress\n  for (const sodTask of sod) {\n    const foundInEod = eod.some(eodTask => eodTask.title.toLowerCase() === sodTask.title.toLowerCase());\n    const foundInBlocked = blocked.some(bTask => bTask.title.toLowerCase() === sodTask.title.toLowerCase());\n\n    if (!foundInEod && !foundInBlocked) {\n      inProgress.push(sodTask);\n    }\n  }\n\n  // Only pass forward if there's tracking activity for this worker today\n  if (completed.length > 0 || inProgress.length > 0 || blocked.length > 0) {\n    finalEmployees[employee] = { completed, inProgress, blocked };\n  }\n}\n\n/* =========================================================\n   SORTING EMPLOYEES\n========================================================= */\nconst sortedEmployees = Object.keys(finalEmployees).sort((a, b) =>\n  a.trim().toLowerCase().localeCompare(b.trim().toLowerCase())\n);\n\n/* =========================================================\n   ADAPTIVE CARD GENERATION\n========================================================= */\nconst cardBody = [];\n\n// Header Info\ncardBody.push({ type: \"TextBlock\", text: `📋 ${SUMMARY_TITLE}`, weight: \"Bolder\", size: \"Large\", wrap: true });\ncardBody.push({ type: \"TextBlock\", text: `📅 ${getSummaryDisplayDate()}`, spacing: \"Small\", wrap: true });\ncardBody.push({ type: \"TextBlock\", text: \"\", separator: true });\n\nif (sortedEmployees.length === 0) {\n  cardBody.push({ type: \"TextBlock\", text: \"No shift updates found for today.\", wrap: true });\n}\n\n// Helper text line builder\nfunction buildTaskLines(tasks) {\n  let lines = [];\n  for (let i = 0; i < tasks.length; i++) {\n    const task = tasks[i];\n    let line = `${i + 1}. ${task.title}`;\n    if (task.dueDate) line += ` | Due: ${task.dueDate}`;\n    if (task.delayed) line += ` ⚠️`;\n    if (task.notes) line += `\\n   ↳ *Notes: ${task.notes}*`;\n    lines.push(line);\n  }\n  return lines.join('\\n\\n');\n}\n\n/* =========================================================\n   EMPLOYEE RENDERING\n========================================================= */\nfor (const employee of sortedEmployees) {\n  const { completed, inProgress, blocked } = finalEmployees[employee];\n\n  cardBody.push({ type: \"TextBlock\", text: `👤 ${employee}`, weight: \"Bolder\", size: \"Medium\", spacing: \"Large\", wrap: true });\n\n  // --- EOD UPDATES SECTION ---\n  if (completed.length || inProgress.length) {\n    cardBody.push({ type: \"TextBlock\", text: \"🔄 EOD Updates\", weight: \"Bolder\", color: \"Accent\", spacing: \"Small\", wrap: true });\n\n    if (completed.length) {\n      cardBody.push({ type: \"TextBlock\", text: \"  ✅ *Completed Tasks*:\", spacing: \"Small\", wrap: true });\n      cardBody.push({ type: \"TextBlock\", text: buildTaskLines(completed), wrap: true, spacing: \"Small\" });\n    }\n\n    if (inProgress.length) {\n      cardBody.push({ type: \"TextBlock\", text: \"  ⏳ *In Progress Tasks*:\", spacing: \"Small\", wrap: true });\n      cardBody.push({ type: \"TextBlock\", text: buildTaskLines(inProgress), wrap: true, spacing: \"Small\" });\n    }\n  }\n\n  // --- BLOCKED TASKS SECTION ---\n  if (blocked.length) {\n    cardBody.push({ type: \"TextBlock\", text: \"🚫 Blocked Tasks\", weight: \"Bolder\", color: \"Attention\", spacing: \"Medium\", wrap: true });\n    cardBody.push({ type: \"TextBlock\", text: buildTaskLines(blocked), wrap: true, spacing: \"Small\" });\n  }\n}\n\n/* =========================================================\n   FINAL OUTPUT PAYLOAD\n========================================================= */\nconst payload = {\n  subject: SUMMARY_TITLE,\n  body: { contentType: \"html\", content: '<attachment id=\"1\"></attachment>' },\n  attachments: [\n    {\n      id: \"1\",\n      contentType: \"application/vnd.microsoft.card.adaptive\",\n      contentUrl: null,\n      content: JSON.stringify({\n        type: \"AdaptiveCard\",\n        version: \"1.4\",\n        $schema: \"http://adaptivecards.io/schemas/adaptive-card.json\",\n        body: cardBody\n      })\n    }\n  ]\n};\n\nreturn [{ json: { payload: JSON.stringify(payload) } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        336,
+        80
+      ],
+      "id": "5466630a-0f45-4f94-93a4-b1b75e22e2dd",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6
+              ],
+              "triggerAtHour": 23,
+              "triggerAtMinute": 30
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -80,
+        80
+      ],
+      "id": "76e28475-9905-4393-b10b-a6fbdc8261e3",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.microsoft.com/v1.0/teams/3ee6a9eb-52f7-49d6-9534-aca6ee97e229/channels/19:0yauRUJHcYYJBylFE-LkFhiINhwkaUAbd5js9ImhDb41@thread.tacv2/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.parse($json.payload) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        496,
+        80
+      ],
+      "id": "59018919-6d0b-4a09-8520-570f10f1d155",
+      "name": "HTTP Request2",
+      "alwaysOutputData": true,
+      "executeOnce": true,
+      "credentials": {
+        "microsoftOAuth2Api": {
+          "id": "E6qchQtiJ3LxWCcp",
+          "name": "Microsoft account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "fd5f943d-859d-49cc-9a88-904ac80b67c1",
+  "meta": {
+    "instanceId": "c0b147709765b44b115fa318596c5482d80b4a57cf23a3b8f73c702d6f76a23d"
+  },
+  "id": "vaJOI7BSbexSfdzF",
+  "tags": []
+}

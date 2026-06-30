@@ -1,0 +1,382 @@
+{
+  "name": "MonthlyAttendanceListSummary",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 21 1-7 * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        80,
+        -112
+      ],
+      "id": "6ec21631-cfdd-4db9-814e-258a6752b0dd",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://graph.microsoft.com/v1.0/sites/legitbytes.sharepoint.com,cd5a7e65-ab79-4753-9494-b410a9d23bc4,f17fe0af-588b-4726-a56e-ac344a8fd4c0/drive/root:/HR/Attendance Reports Monthly:/children",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOAuth2Api",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        272,
+        -112
+      ],
+      "id": "6f78a967-7a3a-45ce-aa17-425a931cfc16",
+      "name": "HTTP Request",
+      "credentials": {
+        "microsoftOAuth2Api": {
+          "id": "E6qchQtiJ3LxWCcp",
+          "name": "Microsoft account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "site": {
+          "__rl": true,
+          "value": "legitbytes.sharepoint.com,cd5a7e65-ab79-4753-9494-b410a9d23bc4,f17fe0af-588b-4726-a56e-ac344a8fd4c0",
+          "mode": "list",
+          "cachedResultName": "LegitBytes"
+        },
+        "folder": {
+          "__rl": true,
+          "value": "01OHR7NMG7XZ52GOFMAFF3ASK643EZIEGB",
+          "mode": "list",
+          "cachedResultName": "Attendance Reports"
+        },
+        "file": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-base.microsoftSharePoint",
+      "typeVersion": 1,
+      "position": [
+        688,
+        -112
+      ],
+      "id": "398e92e7-eb4c-4140-bdce-9288d3a80f3b",
+      "name": "Download file",
+      "credentials": {
+        "microsoftSharePointOAuth2Api": {
+          "id": "FLcQRwOt03NtBeFh",
+          "name": "Microsoft SharePoint account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get all items from the previous node\nconst items = $input.all();\n\n// Assuming your HTTP Request node structure, reach into the 'value' array\nconst files = items[0].json.value;\n\n// Sort by date to find the most recent\nfiles.sort((a, b) => new Date(b.lastModifiedDateTime) - new Date(a.lastModifiedDateTime));\n\n// Return ONLY the newest file as the root object\nreturn [{\n  json: files[0]\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        -112
+      ],
+      "id": "a0bf6517-5341-4dbe-8d11-0ab10681d9f8",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        896,
+        -112
+      ],
+      "id": "f83eeb4f-dce7-4f1a-9ca2-ac0db0beecfc",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get all raw rows from the Spreadsheet node\nconst rows = $input.all();\n\n// 1. Skip the first 2 rows (index 0 and 1)\nconst dataRows = rows.slice(3);\n\n// 2. Map the data to your specific schema\nreturn dataRows.map(row => {\n  const json = row.json;\n  return {\n    json: {\n      \"SNO\": json[\"LegitBytes Information Technology Services LLP\"],\n      \"Name\": json[\"__EMPTY\"],\n      \"Employee No\": json[\"__EMPTY_1\"],\n      \"Date of Joining\": json[\"__EMPTY_2\"],\n      \"Manager No\": json[\"__EMPTY_3\"],\n      \"Manager Name\": json[\"__EMPTY_4\"],\n      \"Attendance Date\": json[\"__EMPTY_5\"],\n      \"Day\": json[\"__EMPTY_6\"],\n      \"Session1 Status\": json[\"__EMPTY_7\"],\n      \"Session2 Status\": json[\"__EMPTY_8\"],\n      \"In Time\": json[\"__EMPTY_9\"],\n      \"Out Time\": json[\"__EMPTY_10\"],\n      \"Shift Name\": json[\"__EMPTY_11\"],\n      \"Shift In Time\": json[\"__EMPTY_12\"],\n      \"Shift Out Time\": json[\"__EMPTY_13\"],\n      \"Late In Hrs\": json[\"__EMPTY_14\"],\n      \"Early Out Hrs\": json[\"__EMPTY_15\"],\n      \"Work Hours\": json[\"__EMPTY_16\"],\n      \"Excess Hours\": json[\"__EMPTY_17\"],\n      \"Total Work Hours\": json[\"__EMPTY_18\"]\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1088,
+        -112
+      ],
+      "id": "5a434a5d-bbfa-42ff-9f36-474489689ccf",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://graph.microsoft.com/v1.0/drives/b!ZX5azXmrU0eUlLQQqdI7xK_gf_GLWCZHpW6sNEqP1MCVzoPhxikqQp6Dzkj5oFcb/items/{{ $('Code in JavaScript').item.json.id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"parentReference\": {\n    \"id\": \"01OHR7NMFIPSMT3OIHPNEYXDWR7273XASC\"\n  },\n  \"name\": \"Attendance Muster Report - {{ $now.format('yyyy-MM-dd-HHmmss') }}.xlsx\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        688,
+        48
+      ],
+      "id": "1ce6c422-aef9-4cd1-9eda-c7defa117ecc",
+      "name": "HTTP Request2",
+      "credentials": {
+        "microsoftSharePointOAuth2Api": {
+          "id": "FLcQRwOt03NtBeFh",
+          "name": "Microsoft SharePoint account"
+        },
+        "microsoftOAuth2Api": {
+          "id": "E6qchQtiJ3LxWCcp",
+          "name": "Microsoft account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get cleaned rows from the previous Mapping Node\nconst rows = $input.all();\n\n// Tracking object\nconst employees = {};\n\n// 1. Process rows into stats\nfor (const row of rows) {\n    const data = row.json;\n    const name = data.Name;\n    if (!name) continue;\n\n    if (!employees[name]) {\n        employees[name] = { absences: 0, leaves: 0, wfh: 0, late: 0 };\n    }\n\n    // LATE logic\n    const totalLateMinutes = (parseInt(data[\"Late In Hrs\"].split(':')[0] || 0) * 60) + parseInt(data[\"Late In Hrs\"].split(':')[1] || 0);\n    if (totalLateMinutes > 15) employees[name].late++;\n\n    // STATUS logic\n    const s1 = (data[\"Session1 Status\"] || \"\").trim();\n    const s2 = (data[\"Session2 Status\"] || \"\").trim();\n\n    if (s1 === \"A\" && s2 === \"A\") employees[name].absences++;\n    if ([\"EL\", \"SL\", \"CL\"].includes(s1) && s1 === s2) employees[name].leaves++;\n    if (s1 === \"WFH\" && s2 === \"WFH\") employees[name].wfh++;\n}\n\n// 2. Format as an array of objects for the SharePoint Node\nconst sharepointItems = Object.entries(employees).map(([name, stats]) => ({\n    json: {\n        Month: \"May 2026\", // You can replace this with a dynamic date if needed\n        EmployeeName: name,\n        LateCount: stats.late,\n        AbsenceDays: stats.absences,\n        WFHCount: stats.wfh,\n        TotalLeaveCount: stats.leaves,\n        ReportDate: new Date().toISOString()\n    }\n}));\n\nreturn sharepointItems;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1296,
+        -112
+      ],
+      "id": "87a6a1a8-dc82-4105-b046-6c4cf1c12a5a",
+      "name": "Code in JavaScript2"
+    },
+    {
+      "parameters": {
+        "resource": "item",
+        "operation": "create",
+        "site": {
+          "__rl": true,
+          "value": "legitbytes.sharepoint.com,1f32110b-3573-4e2d-a002-166c01c71e43,e0b42379-faf7-40b7-93a9-55ab09390e14",
+          "mode": "list",
+          "cachedResultName": "Team Daily Tracker"
+        },
+        "list": {
+          "__rl": true,
+          "value": "b304a707-3c6e-4cd5-9f32-3f8d070e277d",
+          "mode": "list",
+          "cachedResultName": "MonthlyAttendanceSummary"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Title": "={{ $('Code in JavaScript2').item.json.EmployeeName }}",
+            "AbsenceDays": "={{ $json.AbsenceDays }}",
+            "WFH": "={{ $json.WFHCount }}",
+            "Leaves": "={{ $json.TotalLeaveCount }}",
+            "Month": "={{ $('Code in JavaScript2').item.json.Month }}",
+            "LateCount": "={{ $json.LateCount }}",
+            "ReportDate": "={{ $json.ReportDate }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Title",
+              "canBeUsedToMatch": false,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Title",
+              "readOnly": false,
+              "required": false,
+              "type": "string"
+            },
+            {
+              "id": "Month",
+              "canBeUsedToMatch": false,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Month",
+              "readOnly": false,
+              "required": false,
+              "type": "string"
+            },
+            {
+              "id": "LateCount",
+              "canBeUsedToMatch": false,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "LateCount",
+              "readOnly": false,
+              "required": false,
+              "type": "number"
+            },
+            {
+              "id": "AbsenceDays",
+              "canBeUsedToMatch": false,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "AbsenceDays",
+              "readOnly": false,
+              "required": false,
+              "type": "number"
+            },
+            {
+              "id": "WFH",
+              "canBeUsedToMatch": false,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "WFH",
+              "readOnly": false,
+              "required": false,
+              "type": "number"
+            },
+            {
+              "id": "Leaves",
+              "canBeUsedToMatch": false,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Leaves",
+              "readOnly": false,
+              "required": false,
+              "type": "number"
+            },
+            {
+              "id": "ReportDate",
+              "canBeUsedToMatch": false,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "ReportDate",
+              "readOnly": false,
+              "required": false,
+              "type": "dateTime"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-base.microsoftSharePoint",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        -112
+      ],
+      "id": "9497eb30-9a8e-430d-b18f-6e45c28a4c95",
+      "name": "Create item in a list",
+      "credentials": {
+        "microsoftSharePointOAuth2Api": {
+          "id": "FLcQRwOt03NtBeFh",
+          "name": "Microsoft SharePoint account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download file": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Download file",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript2": {
+      "main": [
+        [
+          {
+            "node": "Create item in a list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "8f421f10-bf6a-4583-a0bc-ff176a1f81f4",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c0b147709765b44b115fa318596c5482d80b4a57cf23a3b8f73c702d6f76a23d"
+  },
+  "id": "RubO3hQ3MHvUCfZl",
+  "tags": []
+}
