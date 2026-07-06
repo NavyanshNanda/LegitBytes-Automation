@@ -1,0 +1,181 @@
+PM tickets ids -
+
+To do -
+
+im4cWoPpcUas2c7Q38xJMMkAGshI
+
+In progress - 
+
+yW0QXeb1a0WEBR59j4XD4MkAGjlY
+
+Completed -
+aEIF5ZVF4EajpFs0P-M4xMkAExma
+
+Get user profile old upn -
+
+items('Apply_to_each')?['_assignments']?[0]?['userId']
+
+Past-EOD's -
+3WbkMDt2kUmTdWgbguxUVMkAPHcu
+
+Blocked/Delayed -
+
+Xt33o7HxlUq5ca-IIMHtB8kANtkn
+
+=======================================================================================================================================
+
+Application ID - client (Azure) -
+
+5e0e887d-076f-4b19-b450-c237321509f4
+
+Directory ID - Tenant (Azure) -
+
+751269c7-263e-4977-9545-7e40a0ef9fce
+
+Client Secret Value - (Ask for this if required as it cannot be pushed to git)
+
+Team ID (Project Management) -
+
+62c6d960-b8ea-49e3-8a1c-0f3adcc112e9
+
+Channel ID (PM hub) -
+
+19:eSjMu5wPZLoRuIGBm4d-9f9myTyXfELAB2ohyKK7Nk41@thread.tacv2
+
+
+https://graph.microsoft.com/v1.0/teams/62c6d960-b8ea-49e3-8a1c-0f3adcc112e9/channels/19:eSjMu5wPZLoRuIGBm4d-9f9myTyXfELAB2ohyKK7Nk41@thread.tacv2/messages
+
+
+===================================================================================================================
+
+
+Dayshift Team Daily Tracker info - 
+
+1. Plan ID: _n7wqg0s6UO9v8W3ubCvAskADJ9y
+
+2.Bucket ID's
+
+- To do - Ref3xG50gUqXHAEv-cXz-ckADyqS
+
+- In Progress(SOD): mDwou9zIlEuFUHjO_r9FvMkAMyRU
+
+- Completed(EOD): wx7_BFBsA0uA_J1tz5HuRskAEvOt
+
+- Blocked/Delayed : FiX_zzn_p0ObUeb1IaQdVckABHci
+
+- Past EOD's : XRqaQxO5E0mHaaSMdbl5x8kAIO9x
+
+3. SharePoint list details -
+
+- Site ID: legitbytes.sharepoint.com,1f32110b-3573-4e2d-a002-166c01c71e43,e0b42379-faf7-40b7-93a9-55ab09390e14
+
+- SOD/EOD list ID: 0bed7417-52e9-47bd-b787-8d999ed76567
+
+- Final URL used in n8n: https://graph.microsoft.com/v1.0/sites/legitbytes.sharepoint.com,1f32110b-3573-4e2d-a002-166c01c71e43,e0b42379-faf7-40b7-93a9-55ab09390e14/lists/0bed7417-52e9-47bd-b787-8d999ed76567/items?expand=fields
+
+- Team Daily Tracker Team ID - 52b00f0f-0115-4294-8d09-1b0f55ca7523
+
+- Daily Tracking Hub Channel ID - 19:H1cU_WBxBI7s_8tfQ0OmUW5uXuy7WMXntlFtQCP4laM1@thread.tacv2
+
+- Final URL used in n8n - https://graph.microsoft.com/v1.0/teams/52b00f0f-0115-4294-8d09-1b0f55ca7523/channels/19:H1cU_WBxBI7s_8tfQ0OmUW5uXuy7WMXntlFtQCP4laM1@thread.tacv2/messages
+===================================================================================================================
+
+
+Nightshift planner details:
+
+Plan ID - m8U5v-YrNESd6A7BFfid1ckABAYc
+
+Bucket IDs:
+
+1. To do - KjqimjJIlUuOXlX18s77b8kAFHBU
+
+2. In Progress(SOD) - b5Ybv2CIu0OCZvvUnsu6AMkAByQu
+
+3. Completed(EOD) - bdxo3dStEUS91OeTVpaN3MkACzrx
+
+4. Blocked/Delayed - UA4wbZ4gNUyFtUIC1cX5VMkAEC5T
+
+5. Past EOD's - ly4Tr8BHvkmt5s74-7bGR8kAIrU3
+
+=============================================================================================================
+
+Product Management -
+
+1. Team Id - legitbytes.sharepoint.com,4e68a1cb-fc07-46f8-a712-0a05d183d82f,f17fe0af-588b-4726-a56e-ac344a8fd4c0
+
+2. test2 List Id - ff9568a4-b82d-408c-8cf5-f1039dbc31b7
+
+
+=====================================================================================================================
+
+HR -
+
+1. Team Id -
+
+2. HR SOD/EOD Plan Id - 89ATmz6_ckyh8yM-3cJiwskAELgo
+
+3. To do - pXLu2HvacEmdLZ4kJGqVIMkAFmOZ
+
+4. in Progress (SOD) - RWB-rQCWvE-BS-dVWd9FH8kAIJjr
+
+5. Completed (EOD) - ZlhE_mAqCk6xRvUNTLvVSskAHp8I
+
+6. Blocked/Delayed - LSbYFbFbOk-NCemTLYRSbMkAMgZg
+
+7. Past EOD's - kvWEbMfgcUGqBEo2NNwh68kAJGZO
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

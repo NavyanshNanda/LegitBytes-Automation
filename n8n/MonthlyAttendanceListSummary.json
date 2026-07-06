@@ -151,7 +151,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Get cleaned rows from the previous Mapping Node\nconst rows = $input.all();\n\n// Tracking object\nconst employees = {};\n\n// 1. Process rows into stats\nfor (const row of rows) {\n    const data = row.json;\n    const name = data.Name;\n    if (!name) continue;\n\n    if (!employees[name]) {\n        employees[name] = { absences: 0, leaves: 0, wfh: 0, late: 0 };\n    }\n\n    // LATE logic\n    const totalLateMinutes = (parseInt(data[\"Late In Hrs\"].split(':')[0] || 0) * 60) + parseInt(data[\"Late In Hrs\"].split(':')[1] || 0);\n    if (totalLateMinutes > 15) employees[name].late++;\n\n    // STATUS logic\n    const s1 = (data[\"Session1 Status\"] || \"\").trim();\n    const s2 = (data[\"Session2 Status\"] || \"\").trim();\n\n    if (s1 === \"A\" && s2 === \"A\") employees[name].absences++;\n    if ([\"EL\", \"SL\", \"CL\"].includes(s1) && s1 === s2) employees[name].leaves++;\n    if (s1 === \"WFH\" && s2 === \"WFH\") employees[name].wfh++;\n}\n\n// 2. Format as an array of objects for the SharePoint Node\nconst sharepointItems = Object.entries(employees).map(([name, stats]) => ({\n    json: {\n        Month: \"May 2026\", // You can replace this with a dynamic date if needed\n        EmployeeName: name,\n        LateCount: stats.late,\n        AbsenceDays: stats.absences,\n        WFHCount: stats.wfh,\n        TotalLeaveCount: stats.leaves,\n        ReportDate: new Date().toISOString()\n    }\n}));\n\nreturn sharepointItems;"
+        "jsCode": "// Converts \"HH : MM\" into minutes\nfunction timeToMinutes(timeString) {\n    if (!timeString) return 0;\n\n    const parts = timeString.split(':').map(x => parseInt(x.trim()) || 0);\n\n    return (parts[0] * 60) + parts[1];\n}\n// Get cleaned rows from the previous Mapping Node \nconst rows = $input.all(); \n\n// Tracking object \nconst employees = {}; \n\n// --- DYNAMIC MONTH CALCULATION ---\n// Gets the current date, goes back 1 month, and formats it (e.g., \"June 2026\")\nconst reportDateObj = new Date();\nreportDateObj.setMonth(reportDateObj.getMonth() - 1);\nconst dynamicMonth = reportDateObj.toLocaleString('default', { month: 'long', year: 'numeric' });\n// ---------------------------------\n\n// 1. Process rows into stats \nfor (const row of rows) { \n    const data = row.json; \n    const name = data.Name; \n    if (!name) continue; \n    if (!employees[name]) { \n        employees[name] = {\n    absences: 0,\n    leaves: 0,\n    wfh: 0,\n    late: 0,\n    excessMinutes: 0,\n    workMinutes: 0\n};\n    } \n\n    // LATE logic \n    const totalLateMinutes = (parseInt(data[\"Late In Hrs\"].split(':')[0] || 0) * 60) + parseInt(data[\"Late In Hrs\"].split(':')[1] || 0); \n    if (totalLateMinutes > 15) employees[name].late++; \n\nemployees[name].excessMinutes += timeToMinutes(data[\"Excess Hours\"]);\nemployees[name].workMinutes += timeToMinutes(data[\"Total Work Hours\"]);\n  \n    // STATUS logic \n    const s1 = (data[\"Session1 Status\"] || \"\").trim(); \n    const s2 = (data[\"Session2 Status\"] || \"\").trim(); \n    if (s1 === \"A\" && s2 === \"A\") employees[name].absences++; \n    if ([\"EL\", \"SL\", \"CL\"].includes(s1) && s1 === s2) employees[name].leaves++; \n    if (s1 === \"WFH\" && s2 === \"WFH\") employees[name].wfh++; \n} \n\nfunction minutesToHHMM(totalMinutes) {\n    const hrs = Math.floor(totalMinutes / 60);\n    const mins = totalMinutes % 60;\n\n    return `${hrs}:${mins.toString().padStart(2,'0')}`;\n}\n\n// 2. Format as an array of objects for the SharePoint Node \nconst sharepointItems = Object.entries(employees).map(([name, stats]) => ({ \n    json: {\n    Month: dynamicMonth,\n    EmployeeName: name,\n    LateCount: stats.late,\n    AbsenceDays: stats.absences,\n    WFHCount: stats.wfh,\n    TotalLeaveCount: stats.leaves,\n\n    MonthlyWorkHours: minutesToHHMM(stats.workMinutes),\n    MonthlyExcessHours: minutesToHHMM(stats.excessMinutes),\n\n    ReportDate: new Date().toISOString()\n}\n})); \n\nreturn sharepointItems;\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -187,7 +187,9 @@
             "Leaves": "={{ $json.TotalLeaveCount }}",
             "Month": "={{ $('Code in JavaScript2').item.json.Month }}",
             "LateCount": "={{ $json.LateCount }}",
-            "ReportDate": "={{ $json.ReportDate }}"
+            "ReportDate": "={{ $json.ReportDate }}",
+            "MonthlyWorkHours": "={{ $json.MonthlyWorkHours }}",
+            "MonthlyExcessHours": "={{ $json.MonthlyExcessHours }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -260,6 +262,39 @@
               "readOnly": false,
               "required": false,
               "type": "dateTime"
+            },
+            {
+              "id": "Checklist",
+              "canBeUsedToMatch": false,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Checklist",
+              "readOnly": false,
+              "required": false,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "MonthlyWorkHours",
+              "canBeUsedToMatch": false,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Monthly Work Hours",
+              "readOnly": false,
+              "required": false,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "MonthlyExcessHours",
+              "canBeUsedToMatch": false,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "Monthly Excess Hours",
+              "readOnly": false,
+              "required": false,
+              "type": "string",
+              "removed": false
             }
           ],
           "attemptToConvertTypes": false,
@@ -372,7 +407,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "8f421f10-bf6a-4583-a0bc-ff176a1f81f4",
+  "versionId": "21fe82c1-fd05-4258-90fa-ede32317c451",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "c0b147709765b44b115fa318596c5482d80b4a57cf23a3b8f73c702d6f76a23d"
